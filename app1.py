@@ -77,8 +77,8 @@ def load_models():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
     # Gabungkan folder root server dengan nama file pkl lu
-    tfidf_path = os.path.join(BASE_DIR, 'tfidf_model.pkl')
-    knn_path = os.path.join(BASE_DIR, 'knn_model.pkl')
+    tfidf_path = os.path.join(BASE_DIR, 'tfidf_model (10).pkl')
+    knn_path = os.path.join(BASE_DIR, 'knn_model (10).pkl')
     
     if os.path.exists(tfidf_path) and os.path.exists(knn_path):
         with open(tfidf_path, 'rb') as f_tfidf:
