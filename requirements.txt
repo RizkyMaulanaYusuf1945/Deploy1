@@ -1,1 +1,6 @@
-
+streamlit
+pandas
+pickle-mixin
+plotly
+openpyxl
+scikit-learn
