@@ -70,16 +70,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. FUNGSI MEMUAT MODEL (CACHE - FIX JALUR SERVER CLOUD) ---
+# --- 3. FUNGSI MEMUAT MODEL (CACHE - DENGAN PATH FIX AMAN LINUX) ---
 @st.cache_resource
 def load_models():
-    # Ambil jalur folder tempat file app.py ini berada secara absolut bray!
+    # Mengambil base directory absolut dari letak file app1.py di server
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
-    # Gabungkan folder root server dengan nama file pkl lu
-    tfidf_path = os.path.join(BASE_DIR, 'tfidf_model (8).pkl')
-    knn_path = os.path.join(BASE_DIR, 'knn_model (8).pkl')
+    # Path file model yang sudah diubah namanya (tanpa spasi dan tanda kurung)
+    tfidf_path = os.path.join(BASE_DIR, 'tfidf_model.pkl')
+    knn_path = os.path.join(BASE_DIR, 'knn_model.pkl')
     
+    # Validasi keberadaan file sebelum di-load oleh pickle
     if os.path.exists(tfidf_path) and os.path.exists(knn_path):
         with open(tfidf_path, 'rb') as f_tfidf:
             tfidf = pickle.load(f_tfidf)
@@ -108,8 +109,8 @@ st.markdown('<p class="subtitle">Sistem Klasifikasi Ulasan Komparatif Vacuum Cle
 
 # --- 6. VALIDASI & LOGIKA APLIKASI ---
 if tfidf_model is None or knn_model is None:
-    st.error("🚨 **Kritis:** File `tfidf_model.pkl` atau `knn_model.pkl` tidak terdeteksi oleh sistem internet.")
-    st.warning("👉 Hubungkan folder project Anda ke GitHub dan pastikan kedua file tersebut sudah di-commit.")
+    st.error("🚨 **Kritis:** File `tfidf_model.pkl` atau `knn_model.pkl` tidak terdeteksi oleh sistem.")
+    st.warning("👉 Pastikan Anda sudah mengubah nama file model di GitHub (menghapus spasi dan angka dalam kurung) menjadi tepat `tfidf_model.pkl` dan `knn_model.pkl`.")
 else:
     tab1, tab2 = st.tabs(["🔍 Analisis Teks Tunggal", "📊 Analisis Massal (Batch Processing)"])
     
@@ -243,7 +244,6 @@ else:
                     with g_table:
                         st.markdown("##### 📋 Sampel Valid Output Prediksi (20 Ulasan Terbaik)")
                         
-                        # 🔥 ALGORITMA PENYARING ULASAN MANUSIA MURNI
                         df_clean[nama_kolom] = df_clean[nama_kolom].astype(str)
                         
                         # Saring ulasan organik berdasarkan panjang karakter & membuang teks HTML sistem
@@ -252,7 +252,7 @@ else:
                             (~df_clean[nama_kolom].str.lower().str.contains('bintang|media|komentar|variasi', na=False))
                         ].copy()
                         
-                        # Fungsi membuang kalimat yang kata-katanya dominan repetitif/berulang (ciri bot scraper)
+                        # Fungsi membuang kalimat bot scraper
                         def cek_pola_robot(teks):
                             kata = teks.lower().split()
                             if len(kata) == 0:
@@ -266,7 +266,6 @@ else:
                         else:
                             df_manusia = df_clean.copy()
                             
-                        # Batasi visualisasi tabel tepat hanya 20 baris murni ulasan manusia bray
                         if len(df_manusia) >= 20:
                             df_display = df_manusia[[nama_kolom, 'Status_Sentimen']].head(20)
                         else:
@@ -282,4 +281,3 @@ else:
                         file_name="hasil_analisis_sentimen_vacuum.csv",
                         mime="text/csv"
                     )
-
