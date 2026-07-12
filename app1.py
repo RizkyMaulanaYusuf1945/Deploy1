@@ -14,6 +14,7 @@ st.set_page_config(
 )
 
 # --- 2. CUSTOM CSS UNTUK UI MODERN ---
+# PERBAIKAN: Menggunakan unsafe_allow_html=True (Bukan unsafe_transform)
 st.markdown("""
     <style>
     .main {
@@ -40,18 +41,16 @@ st.markdown("""
         margin-bottom: 25px;
     }
     </style>
-""", unsafe_transform=True)
+""", unsafe_allow_html=True)
 
 # --- 3. LOAD MODEL DAN DATASET (CACHED) ---
 @st.cache_resource
 def load_models():
-    # Menyesuaikan dengan nama file asli hasil upload bray
     tfidf_path = "tfidf_model.pkl"
     knn_path = "knn_model.pkl"
     
-    # Cek keberadaan file agar tidak blank/crash mendadak
     if not os.path.exists(tfidf_path) or not os.path.exists(knn_path):
-        return None, None, f"File model '{tfidf_path}' atau '{knn_path}' tidak ditemukan di direktori project."
+        return None, None, f"File model '{tfidf_path}' atau '{knn_path}' tidak ditemukan."
         
     try:
         with open(tfidf_path, 'rb') as f_tfidf:
@@ -62,13 +61,12 @@ def load_models():
     except Exception as e:
         return None, None, str(e)
 
-# Panggil fungsi load model
+# PERBAIKAN: Membongkar tuple menjadi dua variabel terpisah agar tidak AttributeError
 tfidf_model, knn_model, error_msg = load_models()
 
-# Tampilkan pesan jika model gagal dimuat
 if error_msg:
     st.error(f"❌ **Gagal Memuat Model:** {error_msg}")
-    st.info("💡 Pastikan file `.pkl` berada di folder yang sama dengan file `app1.py` ini.")
+    st.info("💡 Pastikan file `.pkl` berada di satu folder yang sama dengan `app1.py` ini.")
 
 # --- 4. HEADER APLIKASI ---
 st.markdown('<div class="main-title">🧹 Aplikasi Analisis Sentimen Vacuum Cleaner</div>', unsafe_allow_html=True)
@@ -95,14 +93,12 @@ with tab1:
         else:
             with st.spinner("Sedang memproses..."):
                 try:
-                    # 1. Transformasi Teks memakai TF-IDF Vectorizer yang di-load
+                    # PERBAIKAN: Memanggil `.transform` pada tfidf_model
                     vektor_teks = tfidf_model.transform([teks_input.lower()])
                     
-                    # 2. Prediksi Kelas menggunakan Model KNN
+                    # PERBAIKAN: Memanggil `.predict` pada knn_model
                     prediksi_kelas = knn_model.predict(vektor_teks)[0]
                     
-                    # Mapping label angka ke teks string sentimen
-                    # (Sesuaikan mapping 0/1 ini dengan label asli dataset skripsimu)
                     status_sentimen = "Positif" if prediksi_kelas == 1 else "Negatif"
                     warna_box = "green" if status_sentimen == "Positif" else "red"
                     
@@ -115,7 +111,7 @@ with tab1:
                 except Exception as e:
                     st.error(f"Terjadi kesalahan saat pemrosesan prediksi: {e}")
 
-# ==================== TAB 2: ULAASAN MASAL (CSV) ====================
+# ==================== TAB 2: ULASAN MASAL (CSV) ====================
 with tab2:
     st.markdown('<div class="custom-card"><h3>Upload File Dataset Ulasan</h3></div>', unsafe_allow_html=True)
     
@@ -126,7 +122,7 @@ with tab2:
             df = pd.read_csv(uploaded_file)
             st.success("✅ File berhasil diunggah!")
             
-            # Tampilkan pilihan kolom teks ulasan secara dinamis
+            # Memilih kolom teks secara dinamis
             kolom_pilihan = st.selectbox("Pilih kolom yang berisi Teks Ulasan:", df.columns)
             
             if st.button("📊 Proses Analisis Dataset", key="btn_masal"):
@@ -134,18 +130,16 @@ with tab2:
                     st.error("❌ Analisis tidak dapat dilakukan karena model gagal dimuat.")
                 else:
                     with st.spinner("Memproses seluruh dataset..."):
-                        # Buat salinan data dan bersihkan teks kosong
                         df_clean = df.dropna(subset=[kolom_pilihan]).copy()
                         
-                        # 1. Ekstrasi fitur seluruh baris teks
+                        # PERBAIKAN: Menggunakan tfidf_model untuk transformasi dataset masal
                         vektor_dataset = tfidf_model.transform(df_clean[kolom_pilihan].astype(str).str.lower())
                         
-                        # 2. Prediksi massal dengan KNN
+                        # PERBAIKAN: Menggunakan knn_model untuk prediksi dataset masal
                         hasil_prediksi = knn_model.predict(vektor_dataset)
                         df_clean['Label_Prediksi'] = hasil_prediksi
                         df_clean['Status_Sentimen'] = df_clean['Label_Prediksi'].apply(lambda x: "Positif" if x == 1 else "Negatif")
                         
-                        # --- Visualisasi Hasil ---
                         col1, col2 = st.columns([1, 1])
                         
                         with col1:
@@ -161,7 +155,7 @@ with tab2:
                             
                         with col2:
                             st.markdown("#### 📋 20 Sampel Data Hasil Analisis")
-                            # Filter ulasan organik pendek/repetitif (Opsional/Pola Robot)
+                            
                             def cek_pola_robot(teks):
                                 kata = str(teks).lower().split()
                                 if len(kata) == 0:
@@ -177,7 +171,6 @@ with tab2:
                             df_display.index = range(1, len(df_display) + 1)
                             st.dataframe(df_display, use_container_width=True, height=290)
                             
-                        # Tombol Download File Hasil Analisis Lengkap
                         csv_data = df_clean.to_csv(index=False).encode('utf-8')
                         st.download_button(
                             label="📥 Unduh Seluruh Hasil Analisis (.csv)",
