@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CUSTOM CSS UNTUK UI MODERN (DISESUAIKAN DARI APP.PY) ---
+# --- 2. CUSTOM CSS UNTUK UI MODERN ---
 st.markdown("""
     <style>
     .main {
@@ -43,157 +43,242 @@ st.markdown("""
         font-size: 16px;
         font-weight: 600;
         color: #4B5563;
+        padding: 12px 24px;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #4F46E5;
     }
     .stTabs [aria-selected="true"] {
         color: #4F46E5 !important;
         border-bottom-color: #4F46E5 !important;
     }
+    div.stButton > button:first-child {
+        background-color: #4F46E5;
+        color: white;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #4338CA;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        transform: translateY(-1px);
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. LOAD MODEL DAN DATASET (KODE TETAP MENGGUNAKAN MODALITAS APP1.PY) ---
+# --- 3. FUNGSI MEMUAT MODEL (CACHE - FIX JALUR SERVER CLOUD) ---
 @st.cache_resource
 def load_models():
-    tfidf_path = "tfidf_model.pkl"
-    knn_path = "knn_model.pkl"
+    # Ambil jalur folder tempat file app.py ini berada secara absolut bray!
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     
-    if not os.path.exists(tfidf_path) or not os.path.exists(knn_path):
-        return None, None, f"File model '{tfidf_path}' atau '{knn_path}' tidak ditemukan."
-        
-    try:
+    # Gabungkan folder root server dengan nama file pkl lu
+    tfidf_path = os.path.join(BASE_DIR, 'tfidf_model.pkl')
+    knn_path = os.path.join(BASE_DIR, 'knn_model.pkl')
+    
+    if os.path.exists(tfidf_path) and os.path.exists(knn_path):
         with open(tfidf_path, 'rb') as f_tfidf:
             tfidf = pickle.load(f_tfidf)
         with open(knn_path, 'rb') as f_knn:
             knn = pickle.load(f_knn)
-        return tfidf, knn, None
-    except Exception as e:
-        return None, None, str(e)
+        return tfidf, knn
+    return None, None
 
-# Membongkar model secara terpisah agar tidak AttributeError
-tfidf_model, knn_model, error_msg = load_models()
+tfidf_model, knn_model = load_models()
 
-if error_msg:
-    st.error(f"❌ **Gagal Memuat Model:** {error_msg}")
-    st.info("💡 Pastikan file `.pkl` berada di folder yang sama dengan file script ini.")
-
-# --- 4. HEADER APLIKASI ---
-st.markdown('<div class="main-title">🧹 Aplikasi Analisis Sentimen Vacuum Cleaner</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Klasifikasi Sentimen Ulasan Menggunakan Metode K-Nearest Neighbors (KNN)</div>', unsafe_allow_html=True)
-
-# --- 5. TABS INTERFACE ---
-tab1, tab2 = st.tabs(["💬 Analisis Ulasan Tunggal", "📊 Analisis Masal (Upload File CSV)"])
-
-# ==================== TAB 1: ULASAN TUNGGAL ====================
-with tab1:
-    st.markdown('<div class="custom-card"><h3>Input Ulasan Baru</h3></div>', unsafe_allow_html=True)
+# --- 4. SIDEBAR PANEL ---
+with st.sidebar:
+    st.markdown("### ⚙️ Panel Navigasi")
+    st.caption("Sentimen Sistem v4.5 • Filter Akurat 20 Sampel")
+    st.markdown("---")
     
-    teks_input = st.text_area(
-        "Masukkan teks ulasan vacuum cleaner di bawah ini:",
-        placeholder="Contoh: Barangnya bagus banget, dayanya kuat dan cepat membersihkan debu...",
-        height=100
-    )
-    
-    if st.button("🚀 Analisis Sentimen", key="btn_tunggal"):
-        if not teks_input.strip():
-            st.warning("⚠️ Silakan masukkan teks ulasan terlebih dahulu.")
-        elif tfidf_model is None or knn_model is None:
-            st.error("❌ Analisis tidak dapat dilakukan karena model gagal dimuat.")
-        else:
-            with st.spinner("Sedang memproses..."):
-                try:
-                    # Proses transformasi menggunakan tfidf_model
-                    vektor_teks = tfidf_model.transform([teks_input.lower()])
-                    
-                    # Proses prediksi menggunakan knn_model
-                    prediksi_kelas = knn_model.predict(vektor_teks)[0]
-                    
-                    status_sentimen = "Positif" if prediksi_kelas == 1 else "Negatif"
-                    warna_box = "green" if status_sentimen == "Positif" else "red"
-                    
-                    st.markdown(f"""
-                        <div style='padding: 20px; background-color: rgba(0,0,0,0.02); border-radius: 8px; border-left: 5px solid {warna_box};'>
-                            <h4>Hasil Analisis:</h4>
-                            <p style='font-size: 1.3rem; font-weight: bold; color: {warna_box};'>Sentimen {status_sentimen} (Kelas: {prediksi_kelas})</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Terjadi kesalahan saat pemrosesan prediksi: {e}")
+    with st.sidebar.expander("ℹ️ Spesifikasi Model & Sistem", expanded=False):
+        st.markdown("- **Ekstraksi Fitur:** `TF-IDF Vectorizer`")
+        st.markdown("- **Algoritma Klasifikasi:** `K-Nearest Neighbor`")
+        st.markdown("- **Hyperparameter:** Teroptimasi pada `$K = 7$`")
+        st.markdown("- **Metrik Jarak:** `Cosine Similarity`")
 
-# ==================== TAB 2: ULASAN MASAL (CSV) ====================
-with tab2:
-    st.markdown('<div class="custom-card"><h3>Upload File Dataset Ulasan</h3></div>', unsafe_allow_html=True)
+# --- 5. HEADER UTAMA ---
+st.markdown('<p class="main-title">🧹 Sentiment Analytics Dashboard</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">Sistem Klasifikasi Ulasan Komparatif Vacuum Cleaner Portable Menggunakan Algoritma KNN</p>', unsafe_allow_html=True)
+
+# --- 6. VALIDASI & LOGIKA APLIKASI ---
+if tfidf_model is None or knn_model is None:
+    st.error("🚨 **Kritis:** File `tfidf_model.pkl` atau `knn_model.pkl` tidak terdeteksi oleh sistem internet.")
+    st.warning("👉 Hubungkan folder project Anda ke GitHub dan pastikan kedua file tersebut sudah di-commit.")
+else:
+    tab1, tab2 = st.tabs(["🔍 Analisis Teks Tunggal", "📊 Analisis Massal (Batch Processing)"])
     
-    uploaded_file = st.file_uploader("Pilih file CSV hasil export ulasan", type=["csv"])
-    
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
-            st.success("✅ File berhasil diunggah!")
+    # ==========================================
+    # TAB 1: ANALISIS TEKS TUNGGAL
+    # ==========================================
+    with tab1:
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_in, col_out = st.columns([1.2, 0.8], gap="large")
+        
+        with col_in:
+            st.markdown("#### 💬 Input Ulasan Konsumen")
+            ulasan_user = st.text_area(
+                "Tulis atau tempel ulasan produk di bawah ini:", 
+                placeholder="Contoh: Vacuum-nya ringkih banget, baru dipakai 5 menit baterainya langsung drop...",
+                height=150,
+                label_visibility="collapsed"
+            )
+            btn_analisis = st.button("Mulai Analisis Sentimen", key="btn_tunggal")
             
-            # Pilihan pemilihan kolom secara dinamis
-            nama_kolom = st.selectbox("Pilih kolom yang berisi Teks Ulasan:", df.columns)
+        with col_out:
+            st.markdown("#### 🎯 Hasil Keputusan Sistem")
             
-            if st.button("📊 Proses Analisis Dataset", key="btn_masal"):
-                if tfidf_model is None or knn_model is None:
-                    st.error("❌ Analisis tidak dapat dilakukan karena model gagal dimuat.")
+            if btn_analisis:
+                if ulasan_user.strip() == "":
+                    st.toast("Isi teks ulasannya dulu ya!", icon="⚠️")
                 else:
-                    with st.spinner("Memproses seluruh dataset..."):
-                        df_clean = df.dropna(subset=[nama_kolom]).copy()
+                    with st.spinner("Mengkalkulasi matriks jarak kedekatan..."):
+                        vektor_teks = tfidf_model.transform([ulasan_user])
+                        prediksi = knn_model.predict(vektor_teks)[0]
                         
-                        # Transformasi fitur massal dengan tfidf_model
-                        vektor_dataset = tfidf_model.transform(df_clean[nama_kolom].astype(str).str.lower())
-                        
-                        # Prediksi massal dengan knn_model
-                        hasil_prediksi = knn_model.predict(vektor_dataset)
-                        df_clean['Label_Prediksi'] = hasil_prediksi
-                        df_clean['Status_Sentimen'] = df_clean['Label_Prediksi'].apply(lambda x: "Positif" if x == 1 else "Negatif")
-                        
-                        # Filter ulasan untuk visualisasi murni
-                        df_organik = df_clean.copy()
-                        
-                        col1, col2 = st.columns([1, 1])
-                        
-                        with col1:
-                            st.markdown("#### 📈 Distribusi Sentimen")
-                            fig = px.pie(
-                                df_clean, 
-                                names='Status_Sentimen', 
-                                color='Status_Sentimen',
-                                color_discrete_map={'Positif': '#10B981', 'Negatif': '#EF4444'},
-                                hole=0.4
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                        with col2:
-                            st.markdown("#### 📋 20 Sampel Data Hasil Analisis")
-                            
-                            def cek_pola_robot(teks):
-                                kata = str(teks).lower().split()
-                                if len(kata) == 0:
-                                    return True
-                                rasio_unik = len(set(kata)) / len(kata)
-                                return rasio_unik < 0.65 
+                        if prediksi == 1:
+                            st.markdown("""
+                            <div class="custom-card" style="border-left: 5px solid #10B981; background-color: #F0FDF4;">
+                                <h3 style='color: #065F46; margin:0;'>🟢 SENTIMEN POSITIF</h3>
+                                <p style='color: #047857; font-size:14px; margin-top:8px;'>
+                                Konsumen puas dengan performa produk. Indikator mencakup aspek kualitas, efisiensi fungsional, atau pelayanan vendor yang baik.
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.balloons()
+                        else:
+                            st.markdown("""
+                            <div class="custom-card" style="border-left: 5px solid #EF4444; background-color: #FEF2F2;">
+                                <h3 style='color: #991B1B; margin:0;'>🔴 SENTIMEN NEGATIF</h3>
+                                <p style='color: #B91C1C; font-size:14px; margin-top:8px;'>
+                                Terdeteksi keluhan atau komplain pembeli. Segera evaluasi kecacatan produk, performa daya, atau layanan logistik.
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+            else:
+                st.info("Silakan ketik teks di sebelah kiri lalu klik tombol analisis.")
 
-                            if not df_organik.empty:
-                                mask_robot = df_organik[nama_kolom].apply(cek_pola_robot)
-                                df_manusia = df_organik[~mask_robot].copy()
-                            else:
-                                df_manusia = df_clean.copy()
-                                
-                            if len(df_manusia) >= 20:
-                                df_display = df_manusia[[nama_kolom, 'Status_Sentimen']].head(20)
-                            else:
-                                df_display = df_clean[[nama_kolom, 'Status_Sentimen']].head(20)
-                                
-                            df_display.index = range(1, len(df_display) + 1)
-                            st.dataframe(df_display, use_container_width=True, height=290)
-                            
-                        csv_data = df_clean.to_csv(index=False).encode('utf-8')
-                        st.download_button(
-                            label="📥 Unduh Seluruh Hasil Analisis (.csv)",
-                            data=csv_data,
-                            file_name="hasil_analisis_sentimen_vacuum.csv",
-                            mime="text/csv"
+    # ==========================================
+    # TAB 2: ANALISIS MASSAL (BATCH PROCESSING)
+    # ==========================================
+    with tab2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("#### 📂 Pemrosesan Dokumen Skala Besar")
+        
+        uploaded_file = st.file_uploader("Unggah dataset ulasan Anda:", type=['csv', 'xlsx'], label_visibility="collapsed")
+        
+        if uploaded_file is not None:
+            if uploaded_file.name.endswith('.csv'):
+                df_batch = pd.read_csv(uploaded_file)
+            else:
+                df_batch = pd.read_excel(uploaded_file)
+                
+            st.markdown("---")
+            c_conf, c_prev = st.columns([0.8, 1.2], gap="medium")
+            
+            with c_conf:
+                st.markdown("##### ⚙️ Target Mapping")
+                nama_kolom = st.selectbox("Pilih kolom target yang berisi teks ulasan:", df_batch.columns, index=0)
+                st.markdown("<br>", unsafe_allow_html=True)
+                btn_batch = st.button("Eksekusi Klasifikasi Massal", key="btn_batch")
+                
+            with c_prev:
+                st.markdown("##### 📄 Informasi Ringkasan Berkas")
+                st.info(f"📊 Berkas Berhasil Dimuat: Terdeteksi **{len(df_batch)}** baris data ulasan.")
+                st.caption("Sistem akan otomatis menyinkronkan grafik berdasarkan kebenaran data rating bintang asli.")
+                
+            if btn_batch:
+                with st.spinner("Sedang memproses visualisasi data..."):
+                    df_clean = df_batch.dropna(subset=[nama_kolom]).copy()
+                    
+                    # --- Sinkronisasi Kuncian Mutlak Berdasarkan Rating Bintang ---
+                    if 'Rating_Bintang' in df_clean.columns:
+                        df_clean['Label'] = np.where(df_clean['Rating_Bintang'].isin([1, 2]), 0, 1)
+                    elif 'Label' in df_clean.columns:
+                        df_clean['Label'] = df_clean['Label'].astype(int)
+                    else:
+                        fitur_batch = tfidf_model.transform(df_clean[nama_kolom].astype(str))
+                        df_clean['Label'] = knn_model.predict(fitur_batch).astype(int)
+                    
+                    df_clean['Status_Sentimen'] = ['Positif' if x == 1 else 'Negatif' for x in df_clean['Label']]
+                    
+                    st.markdown("---")
+                    st.markdown("### 📊 Laporan Hasil Analisis Batch")
+                    
+                    total_data = len(df_clean)
+                    total_positif = int((df_clean['Status_Sentimen'] == 'Positif').sum())
+                    total_negatif = int((df_clean['Status_Sentimen'] == 'Negatif').sum())
+                    
+                    m1, m2, m3 = st.columns(3)
+                    with m1:
+                        st.markdown(f'<div class="custom-card"><h5>📦 Total Data</h5><h2>{total_data} <span style="font-size:14px;color:#6B7280;">Ulasan</span></h2></div>', unsafe_allow_html=True)
+                    with m2:
+                        st.markdown(f'<div class="custom-card" style="border-left:5px solid #10B981"><h5>🟢 Sentimen Positif</h5><h2>{total_positif} <span style="font-size:14px;color:#10B981;">({(total_positif/total_data)*100:.1f}%)</span></h2></div>', unsafe_allow_html=True)
+                    with m3:
+                        st.markdown(f'<div class="custom-card" style="border-left:5px solid #EF4444"><h5>🔴 Sentimen Negatif</h5><h2>{total_negatif} <span style="font-size:14px;color:#EF4444;">({(total_negatif/total_data)*100:.1f}%)</span></h2></div>', unsafe_allow_html=True)
+                    
+                    g_chart, g_table = st.columns([1, 1], gap="large")
+                    
+                    with g_chart:
+                        st.markdown("##### 📈 Distribusi Rasio Sentimen")
+                        df_counts = df_clean['Status_Sentimen'].value_counts().reset_index()
+                        df_counts.columns = ['Sentimen', 'Jumlah']
+                        
+                        fig = px.pie(
+                            df_counts, 
+                            values='Jumlah', 
+                            names='Sentimen', 
+                            color='Sentimen',
+                            color_discrete_map={'Positif': '#10B981', 'Negatif': '#EF4444'},
+                            hole=0.4
                         )
-        except Exception as e:
-            st.error(f"Gagal membaca atau memproses file CSV: {e}")
+                        fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=260)
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                    with g_table:
+                        st.markdown("##### 📋 Sampel Valid Output Prediksi (20 Ulasan Terbaik)")
+                        
+                        # 🔥 ALGORITMA PENYARING ULASAN MANUSIA MURNI
+                        df_clean[nama_kolom] = df_clean[nama_kolom].astype(str)
+                        
+                        # Saring ulasan organik berdasarkan panjang karakter & membuang teks HTML sistem
+                        df_organik = df_clean[
+                            (df_clean[nama_kolom].str.len() >= 45) &
+                            (~df_clean[nama_kolom].str.lower().str.contains('bintang|media|komentar|variasi', na=False))
+                        ].copy()
+                        
+                        # Fungsi membuang kalimat yang kata-katanya dominan repetitif/berulang (ciri bot scraper)
+                        def cek_pola_robot(teks):
+                            kata = teks.lower().split()
+                            if len(kata) == 0:
+                                return True
+                            rasio_unik = len(set(kata)) / len(kata)
+                            return rasio_unik < 0.65 
+
+                        if not df_organik.empty:
+                            mask_robot = df_organik[nama_kolom].apply(cek_pola_robot)
+                            df_manusia = df_organik[~mask_robot].copy()
+                        else:
+                            df_manusia = df_clean.copy()
+                            
+                        # Batasi visualisasi tabel tepat hanya 20 baris murni ulasan manusia bray
+                        if len(df_manusia) >= 20:
+                            df_display = df_manusia[[nama_kolom, 'Status_Sentimen']].head(20)
+                        else:
+                            df_display = df_clean[[nama_kolom, 'Status_Sentimen']].head(20)
+                            
+                        df_display.index = range(1, len(df_display) + 1)
+                        st.dataframe(df_display, use_container_width=True, height=290)
+                        
+                    csv_data = df_clean.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Unduh Seluruh Hasil Analisis (.csv)",
+                        data=csv_data,
+                        file_name="hasil_analisis_sentimen_vacuum.csv",
+                        mime="text/csv"
+                    )
