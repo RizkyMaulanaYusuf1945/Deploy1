@@ -13,8 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CUSTOM CSS UNTUK UI MODERN ---
-# PERBAIKAN: Menggunakan unsafe_allow_html=True (Bukan unsafe_transform)
+# --- 2. CUSTOM CSS UNTUK UI MODERN (DISESUAIKAN DARI APP.PY) ---
 st.markdown("""
     <style>
     .main {
@@ -40,10 +39,19 @@ st.markdown("""
         color: #4B5563;
         margin-bottom: 25px;
     }
+    .stTabs [data-baseweb="tab"] {
+        font-size: 16px;
+        font-weight: 600;
+        color: #4B5563;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #4F46E5 !important;
+        border-bottom-color: #4F46E5 !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. LOAD MODEL DAN DATASET (CACHED) ---
+# --- 3. LOAD MODEL DAN DATASET (KODE TETAP MENGGUNAKAN MODALITAS APP1.PY) ---
 @st.cache_resource
 def load_models():
     tfidf_path = "tfidf_model.pkl"
@@ -61,12 +69,12 @@ def load_models():
     except Exception as e:
         return None, None, str(e)
 
-# PERBAIKAN: Membongkar tuple menjadi dua variabel terpisah agar tidak AttributeError
+# Membongkar model secara terpisah agar tidak AttributeError
 tfidf_model, knn_model, error_msg = load_models()
 
 if error_msg:
     st.error(f"❌ **Gagal Memuat Model:** {error_msg}")
-    st.info("💡 Pastikan file `.pkl` berada di satu folder yang sama dengan `app1.py` ini.")
+    st.info("💡 Pastikan file `.pkl` berada di folder yang sama dengan file script ini.")
 
 # --- 4. HEADER APLIKASI ---
 st.markdown('<div class="main-title">🧹 Aplikasi Analisis Sentimen Vacuum Cleaner</div>', unsafe_allow_html=True)
@@ -93,10 +101,10 @@ with tab1:
         else:
             with st.spinner("Sedang memproses..."):
                 try:
-                    # PERBAIKAN: Memanggil `.transform` pada tfidf_model
+                    # Proses transformasi menggunakan tfidf_model
                     vektor_teks = tfidf_model.transform([teks_input.lower()])
                     
-                    # PERBAIKAN: Memanggil `.predict` pada knn_model
+                    # Proses prediksi menggunakan knn_model
                     prediksi_kelas = knn_model.predict(vektor_teks)[0]
                     
                     status_sentimen = "Positif" if prediksi_kelas == 1 else "Negatif"
@@ -122,23 +130,26 @@ with tab2:
             df = pd.read_csv(uploaded_file)
             st.success("✅ File berhasil diunggah!")
             
-            # Memilih kolom teks secara dinamis
-            kolom_pilihan = st.selectbox("Pilih kolom yang berisi Teks Ulasan:", df.columns)
+            # Pilihan pemilihan kolom secara dinamis
+            nama_kolom = st.selectbox("Pilih kolom yang berisi Teks Ulasan:", df.columns)
             
             if st.button("📊 Proses Analisis Dataset", key="btn_masal"):
                 if tfidf_model is None or knn_model is None:
                     st.error("❌ Analisis tidak dapat dilakukan karena model gagal dimuat.")
                 else:
                     with st.spinner("Memproses seluruh dataset..."):
-                        df_clean = df.dropna(subset=[kolom_pilihan]).copy()
+                        df_clean = df.dropna(subset=[nama_kolom]).copy()
                         
-                        # PERBAIKAN: Menggunakan tfidf_model untuk transformasi dataset masal
-                        vektor_dataset = tfidf_model.transform(df_clean[kolom_pilihan].astype(str).str.lower())
+                        # Transformasi fitur massal dengan tfidf_model
+                        vektor_dataset = tfidf_model.transform(df_clean[nama_kolom].astype(str).str.lower())
                         
-                        # PERBAIKAN: Menggunakan knn_model untuk prediksi dataset masal
+                        # Prediksi massal dengan knn_model
                         hasil_prediksi = knn_model.predict(vektor_dataset)
                         df_clean['Label_Prediksi'] = hasil_prediksi
                         df_clean['Status_Sentimen'] = df_clean['Label_Prediksi'].apply(lambda x: "Positif" if x == 1 else "Negatif")
+                        
+                        # Filter ulasan untuk visualisasi murni
+                        df_organik = df_clean.copy()
                         
                         col1, col2 = st.columns([1, 1])
                         
@@ -161,13 +172,19 @@ with tab2:
                                 if len(kata) == 0:
                                     return True
                                 rasio_unik = len(set(kata)) / len(kata)
-                                return rasio_unik < 0.65
+                                return rasio_unik < 0.65 
+
+                            if not df_organik.empty:
+                                mask_robot = df_organik[nama_kolom].apply(cek_pola_robot)
+                                df_manusia = df_organik[~mask_robot].copy()
+                            else:
+                                df_manusia = df_clean.copy()
                                 
-                            mask_robot = df_clean[kolom_pilihan].apply(cek_pola_robot)
-                            df_manusia = df_clean[~mask_robot].copy()
-                            
-                            df_display = df_manusia if not df_manusia.empty else df_clean
-                            df_display = df_display[[kolom_pilihan, 'Status_Sentimen']].head(20)
+                            if len(df_manusia) >= 20:
+                                df_display = df_manusia[[nama_kolom, 'Status_Sentimen']].head(20)
+                            else:
+                                df_display = df_clean[[nama_kolom, 'Status_Sentimen']].head(20)
+                                
                             df_display.index = range(1, len(df_display) + 1)
                             st.dataframe(df_display, use_container_width=True, height=290)
                             
